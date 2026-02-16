@@ -1,6 +1,7 @@
 #include "Chess.h"
 #include <limits>
 #include <cmath>
+#include <sstream>
 
 Chess::Chess()
 {
@@ -36,6 +37,10 @@ Bit* Chess::PieceForPlayer(const int playerNumber, ChessPiece piece)
     bit->setOwner(getPlayerAt(playerNumber));
     bit->setSize(pieceSize, pieceSize);
 
+    int tag = static_cast<int>(piece);
+    if (playerNumber != 0) tag |= 128;
+    bit->setGameTag(tag);
+
     return bit;
 }
 
@@ -61,6 +66,76 @@ void Chess::FENtoBoard(const std::string& fen) {
     // 3: castling availability (KQkq or -)
     // 4: en passant target square (in algebraic notation, or -)
     // 5: halfmove clock (number of halfmoves since the last capture or pawn advance)
+
+    // 1) Clear any existing pieces
+    _grid->forEachSquare([](ChessSquare* square, int, int) {
+        if (square && square->bit()) square->destroyBit();
+    });
+
+    // 2) Support either "board-only" FEN or full FEN:
+    std::string placement;
+    {
+        std::istringstream iss(fen);
+        iss >> placement;
+    }
+    if (placement.empty()) return;
+
+    // 3) Parse ranks 8 -> 1 (top to bottom)
+    int x = 0;
+    int y = 0; // y=0 is rank 8
+
+    for (char c : placement)
+    {
+        if (c == '/') {
+            y++;
+            x = 0;
+            if (y >= 8) break;
+            continue;
+        }
+
+        if (c >= '1' && c <= '8') {
+            x += (c - '0');
+            continue;
+        }
+
+        ChessPiece piece = NoPiece;
+        int playerNumber = 0; // 0=white, 1=black
+
+        switch (c)
+        {
+            // White
+            case 'P': piece = Pawn;   playerNumber = 0; break;
+            case 'N': piece = Knight; playerNumber = 0; break;
+            case 'B': piece = Bishop; playerNumber = 0; break;
+            case 'R': piece = Rook;   playerNumber = 0; break;
+            case 'Q': piece = Queen;  playerNumber = 0; break;
+            case 'K': piece = King;   playerNumber = 0; break;
+
+            // Black
+            case 'p': piece = Pawn;   playerNumber = 1; break;
+            case 'n': piece = Knight; playerNumber = 1; break;
+            case 'b': piece = Bishop; playerNumber = 1; break;
+            case 'r': piece = Rook;   playerNumber = 1; break;
+            case 'q': piece = Queen;  playerNumber = 1; break;
+            case 'k': piece = King;   playerNumber = 1; break;
+
+            default:
+                // invalid character => ignore
+                break;
+        }
+
+        if (piece != NoPiece && x >= 0 && x < 8 && y >= 0 && y < 8)
+        {
+            ChessSquare* square = _grid->getSquare(x, 7 - y);
+            if (square) {
+                Bit* b = PieceForPlayer(playerNumber, piece);
+                square->dropBitAtPoint(b, ImVec2(0, 0));
+            }
+        }
+
+        x++;
+        if (x > 8) x = 8;
+    }
 }
 
 bool Chess::actionForEmptyHolder(BitHolder &holder)
