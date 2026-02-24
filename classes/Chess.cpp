@@ -298,7 +298,7 @@ std::vector<BitMove> Chess::generateMoves(const char* state, char color)
 
 void Chess::clearBoardHighlights()
 {
-    // Call base version first (in case it does something important)
+    // Call base version first
     Game::clearBoardHighlights();
 
     // Force-clear our ChessSquare highlight flag (this is what draws yellow)
@@ -405,7 +405,6 @@ bool Chess::clickedBit(Bit &bit)
 void Chess::bitMovedFromTo(Bit &bit, BitHolder &src, BitHolder &dst)
 {
     // If we moved onto an occupied square, capture it.
-    // Note: depending on the engine, the moved bit may already be in dst.
     // We want to destroy ONLY the piece that belonged to the other player.
 
     Bit* dstBit = dst.bit();
