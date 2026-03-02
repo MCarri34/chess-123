@@ -35,6 +35,7 @@ public:
 
     Grid* getGrid() override { return _grid; }
     std::vector<BitMove> generateMoves(const char* state, char color);
+    std::vector<BitMove> generateAllMoves(const char* state, char color);
     
 private:
     Bit* PieceForPlayer(const int playerNumber, ChessPiece piece);

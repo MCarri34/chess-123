@@ -28,6 +28,9 @@ static inline ChessPiece pieceFromStateChar(char c) {
     switch (std::tolower(static_cast<unsigned char>(c))) {
         case 'p': return Pawn;
         case 'n': return Knight;
+        case 'b': return Bishop;
+        case 'r': return Rook;
+        case 'q': return Queen;
         case 'k': return King;
         default:  return NoPiece;
     }
@@ -162,7 +165,33 @@ void Chess::FENtoBoard(const std::string& fen)
     }
 }
 
-// Move generation (pawns, knights, king only)
+static inline void addRayMoves(std::vector<BitMove>& moves, const char* state, char color, int from, ChessPiece piece, int dx, int dy)
+{
+    int fx = from % 8;
+    int fy = from / 8;
+
+    int x = fx + dx;
+    int y = fy + dy;
+
+    while (x >= 0 && x < 8 && y >= 0 && y < 8) {
+        int to = y * 8 + x;
+        char dst = state[to];
+
+        if (dst == '0') {
+            moves.emplace_back(from, to, piece);
+        } else {
+            if (isEnemy(dst, color)) {
+                moves.emplace_back(from, to, piece); // capture
+            }
+            break; // stop on first piece either way
+        }
+
+        x += dx;
+        y += dy;
+    }
+}
+
+// Move generation
 std::vector<BitMove> Chess::generateMoves(const char* state, char color)
 {
     std::vector<BitMove> moves;
@@ -291,9 +320,50 @@ std::vector<BitMove> Chess::generateMoves(const char* state, char color)
             });
             continue;
         }
+
+        // ROOKS
+        if (p == Rook) {
+            addRayMoves(moves, state, color, from, Rook,  1,  0);
+            addRayMoves(moves, state, color, from, Rook, -1,  0);
+            addRayMoves(moves, state, color, from, Rook,  0,  1);
+            addRayMoves(moves, state, color, from, Rook,  0, -1);
+            continue;
+        }
+
+        // BISHOPS
+        if (p == Bishop) {
+            addRayMoves(moves, state, color, from, Bishop,  1,  1);
+            addRayMoves(moves, state, color, from, Bishop, -1,  1);
+            addRayMoves(moves, state, color, from, Bishop,  1, -1);
+            addRayMoves(moves, state, color, from, Bishop, -1, -1);
+            continue;
+        }
+
+        // QUEENS (rook + bishop directions)
+        if (p == Queen) {
+            // rook-like
+            addRayMoves(moves, state, color, from, Queen,  1,  0);
+            addRayMoves(moves, state, color, from, Queen, -1,  0);
+            addRayMoves(moves, state, color, from, Queen,  0,  1);
+            addRayMoves(moves, state, color, from, Queen,  0, -1);
+
+            // bishop-like
+            addRayMoves(moves, state, color, from, Queen,  1,  1);
+            addRayMoves(moves, state, color, from, Queen, -1,  1);
+            addRayMoves(moves, state, color, from, Queen,  1, -1);
+            addRayMoves(moves, state, color, from, Queen, -1, -1);
+            continue;
+        }
+
     }
 
     return moves;
+}
+
+std::vector<BitMove> Chess::generateAllMoves(const char* state, char color)
+{
+    // For right now, this is the full generator.
+    return generateMoves(state, color);
 }
 
 void Chess::clearBoardHighlights()
@@ -350,7 +420,7 @@ bool Chess::canBitMoveFrom(Bit &bit, BitHolder &src)
 
     // Generate moves for current position
     std::string s = stateString();
-    std::vector<BitMove> moves = generateMoves(s.c_str(), color);
+    std::vector<BitMove> moves = generateAllMoves(s.c_str(), color);
 
     // VS Code Debug Console output (run with debugger)
     std::cout << "\n=== MoveGen Debug ===\n";
@@ -432,7 +502,7 @@ bool Chess::canBitMoveFromTo(Bit &bit, BitHolder &src, BitHolder &dst)
     const char color = (getCurrentPlayer()->playerNumber() == 0) ? 'w' : 'b';
 
     const std::string s = stateString();
-    std::vector<BitMove> moves = generateMoves(s.c_str(), color);
+    std::vector<BitMove> moves = generateAllMoves(s.c_str(), color);
 
     _lastMoves = moves;
     _lastFrom = from;
